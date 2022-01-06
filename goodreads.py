@@ -29,6 +29,9 @@ def get_coverimage(soup):
 
 
 def scrape(id, driver):
+    logger = logging.getLogger("scrape")
+    logger.setLevel(logging.DEBUG)
+
     url = "https://www.goodreads.com/book/show/" + id + "?ref=bk_bet_out"
     driver.get(url)
 
@@ -39,19 +42,22 @@ def scrape(id, driver):
             soup = BeautifulSoup(driver.page_source, "html.parser")
             return soup
         except TimeoutException:
-            logging.info(f"TimeoutException while trying {url}. Trying again...")
+            logger.info(f"TimeoutException while trying {url}. Trying again...")
             driver.refresh()
 
     return None
 
 
 def update_export(args):
+    logger = logging.getLogger("update_export")
+    logger.setLevel(logging.DEBUG)
+
     # Read exported CSV
     df = pd.read_csv(args.input)
 
     # Debug mode: Use just 6 rows
     if args.debug:
-        logging.info("Using only 6 rows in 'debug' mode.")
+        logger.info("Using only 6 rows in 'debug' mode.")
         df = df[:6]
 
     # Create new columns for Genre & Cover Image
@@ -61,7 +67,7 @@ def update_export(args):
     # Setup Firefox Driver
     options = webdriver.FirefoxOptions()
     if args.headless:
-        logging.info("Starting Firefox driver in 'headless' mode.")
+        logger.info("Starting Firefox driver in 'headless' mode.")
         options.add_argument("--headless")
     options.set_capability("pageLoadStrategy", "eager")
     driver = webdriver.Firefox(options=options)
@@ -70,17 +76,18 @@ def update_export(args):
     for index, row in tqdm(df.iterrows(), total=len(df)):
         soup = scrape(str(row["Book Id"]), driver)
         if soup is None:
-            logging.warning(f"Could not update {row['Book Id']}: {row['Title']}. Skipping...")
+            logger.warning(f"Could not update {row['Book Id']}: {row['Title']}. Skipping...")
             continue
 
-        genres = get_genres(soup)
-        df["Genres"] = ", ".join(genres)
+        genres = ", ".join(get_genres(soup))
+        df["Genres"] = genres
+        logger.info( f"{row['Book Id']:>8}: {row['Title']} - {genres}")
 
         image = get_coverimage(soup)
-        if image is None:
-            logging.warning(f"Could not get cover image for {row['Book Id']}: {row['title']}.")
         df["Cover Image"] = image if image is not None else ""
+        logger.info(f"{row['Book Id']:>8}: {row['Title']} - {image}")
 
+    # Close all browser windows and end WebDriver session.
     driver.quit()
     df.to_csv(args.output, index=False)
 
@@ -95,10 +102,10 @@ if __name__ == "__main__":
 
     # Config for the Root Logger
     logging.basicConfig(
-        format="[%(levelname)s] :: %(asctime)s :: %(message)s in %(pathname)s at (lineno)d",
+        format="%(name)-14s :: %(levelname)-8s :: %(asctime)s :: %(message)s in %(filename)s at Line %(lineno)d",
         filename="LOG.log",
-        filemode="a",
-        level=logging.DEBUG if args.debug else logging.INFO,
+        filemode="w",
+        level=logging.INFO
     )
 
     update_export(args)
