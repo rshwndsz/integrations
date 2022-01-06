@@ -30,26 +30,26 @@ def scrape(id, driver):
     url = "https://www.goodreads.com/book/show/" + id + "?ref=bk_bet_out"
     driver.get(url)
 
-    # Wait for page to load
     wait = WebDriverWait(driver, timeout=10)
     retries = 1 
     while retries <= 3:
         try:
             wait.until(EC.presence_of_element_located((By.ID, "coverImage")))
-            break
+            soup = BeautifulSoup(driver.page_source, "html.parser")
+            return soup
         except TimeoutException:
             driver.refresh()
             retries += 1
 
-    # Get HTML
-    soup = BeautifulSoup(driver.page_source, "html.parser")
-    return soup
+    # Could not load soup
+    return None
 
 
 def update_export(args):
     # Read exported CSV
     df = pd.read_csv(args.input)
-    # Debug mode: Just 6 rows
+
+    # Debug mode: Use just 6 rows
     if args.debug:
         df = df[:6]
 
@@ -67,6 +67,9 @@ def update_export(args):
     # For each row, update genre & cover image
     for index, row in tqdm(df.iterrows(), total=len(df)):
         soup = scrape(str(row["Book Id"]), driver)
+        if soup is None:
+            print(f"Could not update {row['Book Id']}: {row['Title']}")
+            continue
 
         genres = get_genres(soup)
         df["Genres"] = ", ".join(genres)
