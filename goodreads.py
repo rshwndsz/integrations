@@ -80,11 +80,11 @@ def update_export(args):
             continue
 
         genres = ", ".join(get_genres(soup))
-        df["Genres"] = genres
+        row["Genres"] = genres
         logger.info( f"{row['Book Id']:>8}: {row['Title']} - {genres}")
 
         image = get_coverimage(soup)
-        df["Cover Image"] = image if image is not None else ""
+        row["Cover Image"] = image if image is not None else ""
         logger.info(f"{row['Book Id']:>8}: {row['Title']} - {image}")
 
     # Close all browser windows and end WebDriver session.
