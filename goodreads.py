@@ -16,62 +16,62 @@ logging.basicConfig(
     filemode="w",
     level=logging.INFO
 )
+
+# Instantiate local logger
 logger = logging.getLogger("goodreads")
 logger.setLevel(logging.DEBUG)
 
 
-def get_genres(soup):
+def getGenres(soup):
     genres = []
     for node in soup.find_all("div", {"class": "left"}):
         tags = node.find_all("a", {"class": "actionLinkLite bookPageGenreLink"})
         genre = " > ".join([t.text for t in tags]).strip()
         if genre:
             genres.append(genre)
-    return genres
+    return ", ".join(genres)
 
 
-def get_coverimage(soup):
+def getCoverImage(soup):
     tag = soup.find(id="coverImage")
-    return tag.get("src")
+    image = tag.get("src")
+    return image if image is not None else ""
 
 
-def get_url_from_book_id(id):
+def getURLFromBookID(id):
     url = "https://www.goodreads.com/book/show/" + str(id) + "?ref=bk_bet_out"
     return url
 
 
-def scrape(url):
+def scrapeURLForHTML(url):
     r = requests.get(url)
     soup = BeautifulSoup(r.text, "html.parser")
     return soup
 
 
-def get_extra_data(df, index):
+def getExtraBookData(df, index):
     id = df.loc[index, "Book Id"]
-    url = get_url_from_book_id(id)
-    soup = scrape(url)
+    url = getURLFromBookID(id)
 
+    soup = scrapeURLForHTML(url)
     if soup is None:
         return None
 
-    genres = ", ".join(get_genres(soup))
-    image = get_coverimage(soup)
-
     return {
         "index": index,
-        "Genres": genres,
-        "Cover Image": image if image is not None else ""
+        "Genres": getGenres(soup),
+        "Cover Image": getCoverImage(soup),
     }
 
 
-def update(df):
+def updateExportedCSV(df):
     df["Genres"], df["Cover Image"] = "", ""
 
     with tqdm(total=len(df)) as pbar:
         processes = []
         with ThreadPoolExecutor(max_workers=10) as executor:
             for index in range(len(df)):
-                processes.append(executor.submit(get_extra_data, df, index))
+                processes.append(executor.submit(getExtraBookData, df, index))
 
         for task in as_completed(processes):
             edata = task.result()
@@ -105,8 +105,8 @@ def main(args):
         logger.info(f"Using {args.rows} rows")
         df = df[:args.rows]
 
-    # For each row, update genre & cover image
-    df = update(df)
+    # Update each book's genre & cover image
+    df = updateExportedCSV(df)
 
     # Save updated CSV
     logger.info(f"Saving updated CSV to {args.output}.")
@@ -127,4 +127,4 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(traceback.format_exc())
 
-    logger.info(f"Finished in {time() - _start}s.")
+    logger.info(f"Finished successfully in {time() - _start}s.")
