@@ -52,16 +52,13 @@ def scrapeURLForHTML(url):
     return soup
 
 
-def getExtraBookData(df, index):
-    id = df.loc[index, "Book Id"]
+def getExtraBookData(id):
     url = getURLFromBookID(id)
-
     soup = scrapeURLForHTML(url)
     if soup is None:
         return None
 
     return {
-        "index": index,
         "Genres": getGenres(soup),
         "Cover Image": getCoverImage(soup),
     }
@@ -72,7 +69,7 @@ def updateExportedCSV(df):
 
     with tqdm(total=len(df)) as pbar:
         with ThreadPoolExecutor(max_workers=10) as executor:
-            futureToIndex = { executor.submit(getExtraBookData, df, index): index for index in range(len(df)) }
+            futureToIndex = { executor.submit(getExtraBookData, id): index for index, id in enumerate(df.loc[:, "Book Id"]) }
 
         for future in as_completed(futureToIndex):
             index = futureToIndex[future]
