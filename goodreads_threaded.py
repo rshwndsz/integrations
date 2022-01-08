@@ -64,26 +64,7 @@ def get_extra_data(df, index):
     }
 
 
-def update_normal(df):
-    df["Genres"], df["Cover Image"] = "", ""
-
-    for index in tqdm(range(len(df))):
-        desc = f"{df.loc[index, 'Book Id']:>8}: {df.loc[index, 'Title']}"
-
-        edata = get_extra_data(df, index)
-        if edata is None:
-            logger.warning(f"[Failed] {desc}")
-            continue
-        else:
-            # https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
-            df.loc[index, "Genres"] = edata["Genres"]
-            df.loc[index, "Cover Image"] = edata["Cover Image"]
-            logger.info(f"[Updated] {desc}")
-
-    return df
-
-
-def update_threaded(df):
+def update(df):
     df["Genres"], df["Cover Image"] = "", ""
 
     with tqdm(total=len(df)) as pbar:
@@ -125,10 +106,7 @@ def main(args):
         df = df[:args.rows]
 
     # For each row, update genre & cover image
-    if args.threaded:
-        df = update_threaded(df)
-    else:
-        df = update_normal(df)
+    df = update(df)
 
     # Save updated CSV
     logger.info(f"Saving updated CSV to {args.output}.")
@@ -140,7 +118,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--rows", type=int, default=-1)
-    parser.add_argument("--threaded", dest="threaded", action="store_true")
     parser.add_argument("--input", default="./input.csv")
     parser.add_argument("--output", default="./output.csv")
     args = parser.parse_args()
