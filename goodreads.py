@@ -4,17 +4,18 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from time import time
 
-import requests
 from tqdm import tqdm
 from bs4 import BeautifulSoup
 import pandas as pd
 
+from tor import getSession, getIp
+
 # Config for the Root Logger
 logging.basicConfig(
-    format="%(name)s :: %(levelname)-8s :: %(asctime)s :: %(filename)s - L%(lineno)d :: %(message)s",
+    format="%(name)s :: %(levelname)-8s :: %(asctime)s :: %(filename)s - L%(lineno)-3d :: %(message)s",
     filename="LOG.log",
     filemode="w",
-    level=logging.INFO
+    level=logging.DEBUG
 )
 
 # Instantiate local logger
@@ -47,9 +48,19 @@ def getURLFromBookID(id):
 
 
 def scrapeURLForHTML(url):
-    r = requests.get(url)
+    scrapeURLForHTML.counter += 1
+
+    if scrapeURLForHTML.counter % 15 == 0:
+        session = getSession(rotateIp=True)
+    else:
+        session = getSession()
+    logger.debug(getIp(session))
+
+    r = session.get(url)
     soup = BeautifulSoup(r.text, "html.parser")
     return soup
+
+scrapeURLForHTML.counter = 0
 
 
 def getExtraBookData(id):
@@ -68,11 +79,13 @@ def updateExportedCSV(df):
     df["Genres"], df["Cover Image"] = "", ""
 
     with tqdm(total=len(df)) as pbar:
+        futureToIndex = {}
         with ThreadPoolExecutor(max_workers=10) as executor:
-            futureToIndex = { executor.submit(getExtraBookData, id): index for index, id in enumerate(df.loc[:, "Book Id"]) }
+            for index, id in enumerate(df.loc[:, "Book Id"]):
+                futureToIndex[executor.submit(getExtraBookData, id)] = index
 
-        for future in as_completed(futureToIndex):
-            index = futureToIndex[future]
+        for future in as_completed(futureToIndex): 
+            index = futureToIndex[future] 
             edata = future.result() 
 
             desc = f"{df.loc[index, 'Book Id']:>8}: {df.loc[index, 'Title']}"
