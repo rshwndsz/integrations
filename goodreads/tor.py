@@ -1,12 +1,12 @@
 import argparse
-
 import requests
+
 from stem import Signal
 from stem.control import Controller
 from fake_useragent import UserAgent
 
 
-def getSession(rotateIp=False):
+def getSession(rotateIp: bool = False) -> requests.Session:
     headers = {
         # https://github.com/hellysmile/fake-useragent/issues/81#issuecomment-563242847
         'User-Agent': UserAgent(use_cache_server=False, verify_ssl=False).random
@@ -30,7 +30,7 @@ def getSession(rotateIp=False):
     return s
 
 
-def getIp(session):
+def getIp(session: requests.Session) -> str:
     r = session.get("https://ipinfo.io/json")
     j = r.json()
     return f"IP: {j['ip']} in {j['city']}"
