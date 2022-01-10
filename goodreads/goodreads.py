@@ -1,5 +1,6 @@
 import argparse
 import logging
+from textwrap import indent
 from time import time
 from typing import Union
 from bs4.element import NavigableString
@@ -117,7 +118,9 @@ def updateExportedCSV(df):
         if not (edata and edata["Genres"] and edata["Cover Image"]):
             # Failed to get extra data for the book
             logger.warning(f"[Failed] {descr}")
-            logger.debug(f"\n=== Diagnostic Soup START ===\n{edata['soup'].prettify()}\n=== Diagnostic Soup ENDNG ===")
+            logger.debug(f"\n=== Diagnostic Soup START ===" + 
+                         f"\n{indent(edata['soup'].prettify(), '  ')}" + 
+                         f"\n=== Diagnostic Soup ENDNG ===")
             progress["Failed"] += 1
         else:
             # Got extra data! Now update book.
