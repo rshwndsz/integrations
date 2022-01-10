@@ -1,14 +1,15 @@
 import argparse
 import logging
-import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from time import time
-
+from typing import Union
+from bs4.element import NavigableString
 from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from bs4 import BeautifulSoup
 import pandas as pd
 
-from tor import getSession, getIp
+from goodreads.tor import getSession, getIp
+
 
 # Config for the Root Logger
 logging.basicConfig(
@@ -23,44 +24,57 @@ logger = logging.getLogger("goodreads")
 logger.setLevel(logging.DEBUG)
 
 
-def getGenres(soup):
+def getGenres(soup: BeautifulSoup) -> Union[None, str]:
+    # Adapted from https://github.com/maria-antoniak/goodreads-scraper/blob/b019ff78c7641bba8bcdc36ffa223861a617c7e4/get_books.py#L73-L80
     genres = []
     for node in soup.find_all("div", {"class": "left"}):
         tags = node.find_all("a", {"class": "actionLinkLite bookPageGenreLink"})
         genre = " > ".join([t.text for t in tags]).strip()
         if genre:
             genres.append(genre)
-    return ", ".join(genres)
+
+    if not genres:
+        return None
+
+    genres = ", ".join(genres)
+    return genres
 
 
-def getCoverImage(soup):
-    tag = soup.find(id="coverImage")
-    if tag is None:
-        image = None
-    else:
-        image = tag.get("src")
-    return image if image is not None else ""
+def getCoverImage(soup: BeautifulSoup) -> Union[None, str]:
+    image = None
+    tags = soup.findAll("meta", attrs={ "property": "og:image" }) or soup.findAll(id="coverImage")
+    for tag in tags:
+        if tag and not isinstance(tag, NavigableString):
+            image = tag.get("content") or tag.get("src")
+
+    return image
 
 
 def getURLFromBookID(id):
-    url = "https://www.goodreads.com/book/show/" + str(id) + "?ref=bk_bet_out"
+    url = "https://www.goodreads.com/book/show/" + str(id)
     return url
 
 
 def scrapeURLForHTML(url):
-    scrapeURLForHTML.counter += 1
+    # https://stackoverflow.com/a/16214510
+    try:
+        # Update every hit to this function
+        scrapeURLForHTML.counter += 1
+    except AttributeError:
+        # Initialise counter
+        scrapeURLForHTML.counter = 0 
 
+    # Rotate IP every 15 requests
     if scrapeURLForHTML.counter % 15 == 0:
         session = getSession(rotateIp=True)
     else:
         session = getSession()
     logger.debug(getIp(session))
 
+    # HTML work
     r = session.get(url)
     soup = BeautifulSoup(r.text, "html.parser")
     return soup
-
-scrapeURLForHTML.counter = 0
 
 
 def getExtraBookData(id):
@@ -69,43 +83,59 @@ def getExtraBookData(id):
     if soup is None:
         return None
 
+    genres = getGenres(soup)
+    image = getCoverImage(soup)
+
     return {
-        "Genres": getGenres(soup),
-        "Cover Image": getCoverImage(soup),
+        "soup": soup,
+        "Genres": genres,
+        "Cover Image": image,
     }
 
 
 def updateExportedCSV(df):
+    # Add new columns
     df["Genres"], df["Cover Image"] = "", ""
 
-    with tqdm(total=len(df)) as pbar:
-        futureToIndex = {}
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            for index, id in enumerate(df.loc[:, "Book Id"]):
-                futureToIndex[executor.submit(getExtraBookData, id)] = index
+    # Track progress
+    progress = {"Done": 0, "Failed": 0}
+    pbar = tqdm(total=len(df), postfix=progress)
 
-        for future in as_completed(futureToIndex): 
-            index = futureToIndex[future] 
-            edata = future.result() 
+    # Spin up threads
+    # TODO Retries
+    futureToIndex = {}
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        for index, id in enumerate(df.loc[:, "Book Id"]):
+            futureToIndex[executor.submit(getExtraBookData, id)] = index
 
-            desc = f"{df.loc[index, 'Book Id']:>8}: {df.loc[index, 'Title']}"
+    # Update DataFrame as threads complete
+    for future in as_completed(futureToIndex): 
+        index = futureToIndex[future] 
+        edata = future.result() 
+        descr = f"{df.loc[index, 'Book Id']:>8}: {df.loc[index, 'Title']}"
 
-            if edata is None:
-                logger.warning(f"[Failed] {desc}: Could not get HTML.")
+        if not (edata and edata["Genres"] and edata["Cover Image"]):
+            # Failed to get extra data for the book
+            logger.warning(f"[Failed] {descr}")
+            logger.debug(f"""
+                         === Diagnostic Soup START === 
+                         {edata['soup'].prettify()}
+                         === Diagnostic Soup ENDNG ===
+                         """)
+            progress["Failed"] += 1
+        else:
+            # Got extra data! Now update book.
+            df.loc[index, "Genres"] = edata["Genres"]
+            df.loc[index, "Cover Image"] = edata["Cover Image"]
 
-            elif edata["Genres"] == "":
-                logger.error(f"[Failed] {desc}: Could not get Genres.")
+            logger.info(f"[Updated] {descr}")
+            progress["Done"] += 1
 
-            elif edata["Cover Image"] == "":
-                logger.error(f"[Failed] {desc}: Could not get Cover Image.")
+        # thank you, next
+        pbar.update(1)
+        pbar.set_postfix(progress)
 
-            else:
-                df.loc[index, "Genres"] = edata["Genres"]
-                df.loc[index, "Cover Image"] = edata["Cover Image"]
-                logger.info(f"[Updated] {desc}")
-
-            pbar.update(1)
-
+    pbar.close()
     return df
 
 
@@ -113,10 +143,12 @@ def main(args):
     # Read exported CSV
     df = pd.DataFrame(pd.read_csv(args.input))
 
-    # Select a subset of the data, if requested
-    if args.books > len(df) or args.books == 0:
+    # Check validity of arguments
+    if args.books > len(df) or args.books == 0 or args.books < -1:
         logger.error(f"Invalid number of books: {args.books}. Aborting...")
         exit()
+
+    # Select a subset of the data, if requested
     if args.books != -1:
         logger.info(f"Using {args.books} books.")
         df = df[:args.books]
@@ -141,6 +173,6 @@ if __name__ == "__main__":
     try:
         main(args)
     except Exception as e:
-        logger.error(traceback.format_exc())
-
-    logger.info(f"Finished successfully in {time() - _start}s.")
+        logger.critical(e, exc_info=True)
+    else:
+        logger.info(f"Finished successfully in {time() - _start}s.")
