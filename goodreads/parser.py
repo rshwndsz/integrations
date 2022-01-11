@@ -1,5 +1,6 @@
 import argparse
 import logging
+import sys
 from textwrap import indent
 from time import time
 from functools import wraps
@@ -33,6 +34,7 @@ def getGenresFromHTML(soup: BeautifulSoup) -> Union[None, str]:
         tags = node.find_all("a", {"class": "actionLinkLite bookPageGenreLink"})
         genre = " > ".join([t.text for t in tags]).strip()
         if genre:
+            genre = genre.strip()
             genres.append(genre)
 
     if not genres:
@@ -48,6 +50,7 @@ def getCoverImageFromHTML(soup: BeautifulSoup) -> Union[None, str]:
     for tag in tags:
         if tag and not isinstance(tag, NavigableString):
             image = tag.get("src") or tag.get("content")
+            image = image.strip()
 
     return image
 
@@ -112,7 +115,20 @@ def getExtraDataForBook(id: int) -> Dict[str, Any]:
     }
 
 
-def getUpdatedLibrary(df: pd.DataFrame) -> pd.DataFrame:
+def getUpdatedLibrary(csv: str, nBooks: int = 2) -> pd.DataFrame:
+    # Read exported CSV
+    df = pd.DataFrame(pd.read_csv(csv))
+
+    # Check validity of arguments
+    if nBooks > len(df) or nBooks == 0 or nBooks < -1:
+        logger.error(f"Invalid number of books: {nBooks}. Aborting...")
+        exit()
+
+    # Select a subset of the data, if requested
+    if nBooks != -1:
+        logger.info(f"Using {nBooks} books.")
+        df = df[:nBooks]
+
     # Add new columns
     df["Genres"], df["Cover Image"] = "", ""
 
@@ -156,35 +172,28 @@ def getUpdatedLibrary(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def main(args) -> None:
-    # Read exported CSV
-    df = pd.DataFrame(pd.read_csv(args.input))
-
-    # Check validity of arguments
-    if args.books > len(df) or args.books == 0 or args.books < -1:
-        logger.error(f"Invalid number of books: {args.books}. Aborting...")
-        exit()
-
-    # Select a subset of the data, if requested
-    if args.books != -1:
-        logger.info(f"Using {args.books} books.")
-        df = df[:args.books]
-
     # Update each book's genre & cover image
-    df = getUpdatedLibrary(df)
+    df = getUpdatedLibrary(args.input, args.books)
 
     # Save updated CSV
     logger.info(f"Saving updated CSV to {args.output}.")
     df.to_csv(args.output, index=False)
 
 
-if __name__ == "__main__":
-    _start = time()
-
+def parseArgs(argv):
+    # https://stackoverflow.com/a/18161115
     parser = argparse.ArgumentParser()
     parser.add_argument("--books", type=int, default=-1)
     parser.add_argument("--input", default="./input.csv")
     parser.add_argument("--output", default="./output.csv")
-    args = parser.parse_args()
 
+    return parser.parse_args(argv)
+
+
+if __name__ == "__main__":
+    _start = time()
+
+    args = parseArgs(sys.argv[1:])
     main(args)
+
     logger.info(f"Finished successfully in {time() - _start}s.")
