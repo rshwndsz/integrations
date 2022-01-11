@@ -10,8 +10,6 @@ h11==0.12.0
 idna==3.3
 iniconfig==1.1.1
 lxml==4.7.1
-mypy==0.931
-mypy-extensions==0.4.3
 numpy==1.22.0
 outcome==1.1.0
 packaging==21.3
