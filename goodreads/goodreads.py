@@ -2,6 +2,7 @@ import argparse
 import logging
 from textwrap import indent
 from time import time
+from functools import wraps
 from typing import Any, Dict, Union
 
 from tqdm import tqdm
@@ -43,10 +44,10 @@ def getGenresFromHTML(soup: BeautifulSoup) -> Union[None, str]:
 
 def getCoverImageFromHTML(soup: BeautifulSoup) -> Union[None, str]:
     image = None
-    tags = soup.findAll("meta", attrs={ "property": "og:image" }) or soup.findAll(id="coverImage")
+    tags = soup.findAll(id="coverImage") or soup.findAll("meta", attrs={ "property": "og:image" })
     for tag in tags:
         if tag and not isinstance(tag, NavigableString):
-            image = tag.get("content") or tag.get("src")
+            image = tag.get("src") or tag.get("content")
 
     return image
 
@@ -78,14 +79,31 @@ def getHTMLFromURL(url: str, rotateIpEveryNRequests: int = 15) -> BeautifulSoup:
     return soup
 
 
-def getExtraDataForBook(id: int) -> Union[None, Dict[str, Any]]:
+def retry(f, nRetries=3):
+    # Adapted from https://stackoverflow.com/a/11624927
+    @wraps(f)
+    def wrapped(*args, **kwargs):
+        for _ in range(nRetries):
+            try:
+                return f(*args, **kwargs)
+            except ValueError as e:
+                logger.warning(e)
+                continue
+        return None
+    return wrapped
+
+
+@retry
+def getExtraDataForBook(id: int) -> Dict[str, Any]:
     url = getURLFromBookID(id)
     html = getHTMLFromURL(url)
     if html is None:
-        return None
+        raise ValueError(f"{id}: Failed to get HTML. Retry")
 
     genres = getGenresFromHTML(html)
     image = getCoverImageFromHTML(html)
+    if not (genres and image):
+        raise ValueError(f"{id}: Failed to get genres/image. Retry.")
 
     return {
         "HTML": html,
@@ -108,30 +126,30 @@ def getUpdatedLibrary(df: pd.DataFrame) -> pd.DataFrame:
         for index, id in enumerate(df.loc[:, "Book Id"]):
             futureToIndex[executor.submit(getExtraDataForBook, id)] = index
 
-    # Update DataFrame as threads complete
-    for future in as_completed(futureToIndex): 
-        index = futureToIndex[future] 
-        edata = future.result() 
-        descr = f"{df.loc[index, 'Book Id']:>8}: {df.loc[index, 'Title']}"
+        # Update DataFrame as threads complete
+        for future in as_completed(futureToIndex):
+            index = futureToIndex[future]
+            edata = future.result()
+            descr = f"{df.loc[index, 'Book Id']:>8}: {df.loc[index, 'Title']}"
 
-        if not (edata and edata["Genres"] and edata["Cover Image"]):
-            # Failed to get extra data for the book
-            logger.warning(f"[Failed] {descr}")
-            logger.debug(f"\n=== Diagnostic HTML START ===" +
-                         f"\n{indent(edata['HTML'].prettify(), '  ')}" +
-                         f"\n=== Diagnostic HTML ENDNG ===")
-            progress["Failed"] += 1
-        else:
-            # Got extra data! Now update book.
-            df.loc[index, "Genres"] = edata["Genres"]
-            df.loc[index, "Cover Image"] = edata["Cover Image"]
+            if not (edata and edata["Genres"] and edata["Cover Image"]):
+                # Failed to get extra data for the book
+                logger.warning(f"[Failed] {descr}")
+                logger.debug(f"\n=== Diagnostic HTML START ===" +
+                             f"\n{indent(edata['HTML'].prettify(), '  ')}" +
+                             f"\n=== Diagnostic HTML ENDNG ===")
+                progress["Failed"] += 1
+            else:
+                # Got extra data! Now update book.
+                df.loc[index, "Genres"] = edata["Genres"]
+                df.loc[index, "Cover Image"] = edata["Cover Image"]
 
-            logger.info(f"[Updated] {descr}")
-            progress["Done"] += 1
+                logger.info(f"[Updated] {descr}")
+                progress["Done"] += 1
 
-        # thank you, next
-        pbar.update(1)
-        pbar.set_postfix(progress)
+            # thank you, next
+            pbar.update(1)
+            pbar.set_postfix(progress)
 
     pbar.close()
     return df
