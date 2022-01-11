@@ -10,9 +10,8 @@ from selenium.common.exceptions import TimeoutException
 # Config for root logger
 logging.basicConfig(
     format="%(name)-14s :: %(levelname)-8s :: %(asctime)s :: %(message)s in %(filename)s at Line %(lineno)d",
-    filename="LOG.log",
-    filemode="w",
-    level=logging.INFO
+    handlers=[logging.FileHandler("LOG.log", mode="w")],
+    level=logging.INFO,
 )
 
 # Instantiate local logger
@@ -27,32 +26,45 @@ def getExport(driver):
     wait = WebDriverWait(driver, timeout=10)
     for _ in range(3):
         try:
-            wait.until(EC.presence_of_element_located((By.ID, "coverImage")))
+            wait.until(EC.presence_of_element_located((By.CLASS_NAME, "exportBooks")))
         except TimeoutException:
             logger.info(f"TimeoutException while trying {url}. Trying again...")
             driver.refresh()
-
+        else:
+            # exportButton = driver.find_element_by
+            pass
     return None
 
 
-def update_export(args):
-    # Setup Firefox Driver
+def signInPage(driver, username, password):
+    driver.get("https://www.goodreads.com/user/sign_in")
+    driver.find_element_by_id("user_email").send_keys(username)
+    driver.find_element_by_id("password").send_keys(password)
+
+
+def setupFirefoxDriver(args):
     options = webdriver.FirefoxOptions()
+
     if args.headless:
         logger.info("Starting Firefox driver in 'headless' mode.")
         options.add_argument("--headless")
+
     options.set_capability("pageLoadStrategy", "eager")
 
     driver = webdriver.Firefox(options=options)
+    return driver
 
-    # Close all browser windows and end WebDriver session.
-    driver.quit()
+
+def main(args):
+    driver = setupFirefoxDriver(args)
+    pass
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--headless", dest="headless", action="store_true")
+    parser.add_argument("--username")
+    parser.add_argument("--password")
     args = parser.parse_args()
 
-    update_export(args)
-
+    main(args)
