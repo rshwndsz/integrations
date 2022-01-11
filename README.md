@@ -1,12 +1,27 @@
-# Readme
+# Integrations
 
-## Tor
+Connecting APIs for lulz.
 
-https://sylvaindurand.org/use-tor-with-python/  
-
-https://gist.github.com/KhepryQuixote/46cf4f3b999d7f658853
+## Usage
 
 ```bash
+git clone https://github.com/rshwndsz/integrations.git
+cd integrations
+
+python3 -m venv ./.venv
+source ./.venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+
 brew install tor
 /usr/local/opt/tor/bin/tor
+
+python -m goodreads.parser --input input.csv --output output.csv
+```
+
+## Tests
+
+```bash
+cd tests
+pytest
 ```
