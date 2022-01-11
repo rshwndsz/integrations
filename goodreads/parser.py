@@ -12,14 +12,14 @@ from bs4.element import NavigableString
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from bs4 import BeautifulSoup
 
-from goodreads.tor import getSession, getIp
+from goodreads.sessions import getSession, getIP
 
 # Config for root logger
 logging.basicConfig(
     format="%(name)s :: %(levelname)-8s :: %(asctime)s :: %(filename)s - L%(lineno)-3d :: %(message)s",
     filename="LOG.log",
     filemode="w",
-    level=logging.DEBUG
+    level=logging.DEBUG,
 )
 
 # Instantiate local logger
@@ -46,7 +46,9 @@ def getGenresFromHTML(soup: BeautifulSoup) -> Union[None, str]:
 
 def getCoverImageFromHTML(soup: BeautifulSoup) -> Union[None, str]:
     image = None
-    tags = soup.findAll(id="coverImage") or soup.findAll("meta", attrs={ "property": "og:image" })
+    tags = soup.findAll(id="coverImage") or soup.findAll(
+        "meta", attrs={"property": "og:image"}
+    )
     for tag in tags:
         if tag and not isinstance(tag, NavigableString):
             image = tag.get("src") or tag.get("content")
@@ -71,10 +73,10 @@ def getHTMLFromURL(url: str, rotateIpEveryNRequests: int = 15) -> BeautifulSoup:
 
     # Rotate IP every 15 requests, if requested
     if rotateIpEveryNRequests and getHTMLFromURL.counter % rotateIpEveryNRequests == 0:
-        session = getSession(rotateIp=True)
+        session = getSession(useTor=True, rotateIp=True)
     else:
-        session = getSession()
-    logger.debug(getIp(session))
+        session = getSession(useTor=True, rotateIp=False)
+    logger.debug(getIP(session))
 
     # Get HTML
     r = session.get(url)
@@ -93,6 +95,7 @@ def retry(f, nRetries=3):
                 logger.warning(e)
                 continue
         return None
+
     return wrapped
 
 
@@ -151,9 +154,11 @@ def getUpdatedLibrary(csv: str, nBooks: int = 2) -> pd.DataFrame:
             if not (edata and edata["Genres"] and edata["Cover Image"]):
                 # Failed to get extra data for the book
                 logger.warning(f"[Failed] {descr}")
-                logger.debug(f"\n=== Diagnostic HTML START ===" +
-                             f"\n{indent(edata['HTML'].prettify(), '  ')}" +
-                             f"\n=== Diagnostic HTML ENDNG ===")
+                logger.debug(
+                    f"\n=== Diagnostic HTML START ==="
+                    + f"\n{indent(edata['HTML'].prettify(), '  ')}"
+                    + f"\n=== Diagnostic HTML ENDNG ==="
+                )
                 progress["Failed"] += 1
             else:
                 # Got extra data! Now update book.
