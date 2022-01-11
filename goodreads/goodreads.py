@@ -2,17 +2,17 @@ import argparse
 import logging
 from textwrap import indent
 from time import time
-from typing import Union
-from bs4.element import NavigableString
+from typing import Any, Dict, Union
+
 from tqdm import tqdm
+import pandas as pd
+from bs4.element import NavigableString
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from bs4 import BeautifulSoup
-import pandas as pd
 
 from goodreads.tor import getSession, getIp
 
-
-# Config for the Root Logger
+# Config for root logger
 logging.basicConfig(
     format="%(name)s :: %(levelname)-8s :: %(asctime)s :: %(filename)s - L%(lineno)-3d :: %(message)s",
     filename="LOG.log",
@@ -25,8 +25,8 @@ logger = logging.getLogger("goodreads")
 logger.setLevel(logging.DEBUG)
 
 
-def getGenres(soup: BeautifulSoup) -> Union[None, str]:
-    # Adapted from https://github.com/maria-antoniak/goodreads-scraper/blob/b019ff78c7641bba8bcdc36ffa223861a617c7e4/get_books.py#L73-L80
+def getGenresFromHTML(soup: BeautifulSoup) -> Union[None, str]:
+    # https://github.com/maria-antoniak/goodreads-scraper/blob/b019ff78c7641bba8bcdc36ffa223861a617c7e4/get_books.py#L73-L80
     genres = []
     for node in soup.find_all("div", {"class": "left"}):
         tags = node.find_all("a", {"class": "actionLinkLite bookPageGenreLink"})
@@ -41,7 +41,7 @@ def getGenres(soup: BeautifulSoup) -> Union[None, str]:
     return genres
 
 
-def getCoverImage(soup: BeautifulSoup) -> Union[None, str]:
+def getCoverImageFromHTML(soup: BeautifulSoup) -> Union[None, str]:
     image = None
     tags = soup.findAll("meta", attrs={ "property": "og:image" }) or soup.findAll(id="coverImage")
     for tag in tags:
@@ -51,50 +51,50 @@ def getCoverImage(soup: BeautifulSoup) -> Union[None, str]:
     return image
 
 
-def getURLFromBookID(id):
+def getURLFromBookID(id: int) -> str:
     url = "https://www.goodreads.com/book/show/" + str(id)
     return url
 
 
-def scrapeURLForHTML(url):
+def getHTMLFromURL(url: str, rotateIpEveryNRequests: int = 15) -> BeautifulSoup:
     # https://stackoverflow.com/a/16214510
     try:
         # Update every hit to this function
-        scrapeURLForHTML.counter += 1
+        getHTMLFromURL.counter += 1
     except AttributeError:
         # Initialise counter
-        scrapeURLForHTML.counter = 0 
+        getHTMLFromURL.counter = 0
 
-    # Rotate IP every 15 requests
-    if scrapeURLForHTML.counter % 15 == 0:
+    # Rotate IP every 15 requests, if requested
+    if rotateIpEveryNRequests and getHTMLFromURL.counter % rotateIpEveryNRequests == 0:
         session = getSession(rotateIp=True)
     else:
         session = getSession()
     logger.debug(getIp(session))
 
-    # HTML work
+    # Get HTML
     r = session.get(url)
     soup = BeautifulSoup(r.text, "html.parser")
     return soup
 
 
-def getExtraBookData(id):
+def getExtraDataForBook(id: int) -> Union[None, Dict[str, Any]]:
     url = getURLFromBookID(id)
-    soup = scrapeURLForHTML(url)
-    if soup is None:
+    html = getHTMLFromURL(url)
+    if html is None:
         return None
 
-    genres = getGenres(soup)
-    image = getCoverImage(soup)
+    genres = getGenresFromHTML(html)
+    image = getCoverImageFromHTML(html)
 
     return {
-        "soup": soup,
+        "HTML": html,
         "Genres": genres,
         "Cover Image": image,
     }
 
 
-def updateExportedCSV(df):
+def getUpdatedLibrary(df: pd.DataFrame) -> pd.DataFrame:
     # Add new columns
     df["Genres"], df["Cover Image"] = "", ""
 
@@ -103,11 +103,10 @@ def updateExportedCSV(df):
     pbar = tqdm(total=len(df), postfix=progress)
 
     # Spin up threads
-    # TODO Retries
     futureToIndex = {}
     with ThreadPoolExecutor(max_workers=10) as executor:
         for index, id in enumerate(df.loc[:, "Book Id"]):
-            futureToIndex[executor.submit(getExtraBookData, id)] = index
+            futureToIndex[executor.submit(getExtraDataForBook, id)] = index
 
     # Update DataFrame as threads complete
     for future in as_completed(futureToIndex): 
@@ -118,9 +117,9 @@ def updateExportedCSV(df):
         if not (edata and edata["Genres"] and edata["Cover Image"]):
             # Failed to get extra data for the book
             logger.warning(f"[Failed] {descr}")
-            logger.debug(f"\n=== Diagnostic Soup START ===" + 
-                         f"\n{indent(edata['soup'].prettify(), '  ')}" + 
-                         f"\n=== Diagnostic Soup ENDNG ===")
+            logger.debug(f"\n=== Diagnostic HTML START ===" +
+                         f"\n{indent(edata['HTML'].prettify(), '  ')}" +
+                         f"\n=== Diagnostic HTML ENDNG ===")
             progress["Failed"] += 1
         else:
             # Got extra data! Now update book.
@@ -138,7 +137,7 @@ def updateExportedCSV(df):
     return df
 
 
-def main(args):
+def main(args) -> None:
     # Read exported CSV
     df = pd.DataFrame(pd.read_csv(args.input))
 
@@ -153,7 +152,7 @@ def main(args):
         df = df[:args.books]
 
     # Update each book's genre & cover image
-    df = updateExportedCSV(df)
+    df = getUpdatedLibrary(df)
 
     # Save updated CSV
     logger.info(f"Saving updated CSV to {args.output}.")
@@ -169,9 +168,5 @@ if __name__ == "__main__":
     parser.add_argument("--output", default="./output.csv")
     args = parser.parse_args()
 
-    try:
-        main(args)
-    except Exception as e:
-        logger.critical(e, exc_info=True)
-    else:
-        logger.info(f"Finished successfully in {time() - _start}s.")
+    main(args)
+    logger.info(f"Finished successfully in {time() - _start}s.")
