@@ -14,7 +14,7 @@ python -m pip install -r requirements.txt
 brew install tor
 /usr/local/opt/tor/bin/tor
 
-python -m goodreads.parser --input input.csv --output output.csv
+python -m goodreads.scraper --input input.csv --output output.csv
 ```
 
 ## Tests
