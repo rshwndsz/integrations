@@ -1,23 +1,23 @@
 from time import sleep
 import requests
-from goodreads.sessions import getSession, getIP
+from goodreads import sessions as S
 
 
 def test_getSessionWithTor():
     s = requests.Session()
-    myIP = getIP(s)
+    myIP = S.getIP(s)
 
-    s = getSession(useTor=True)
-    torIP = getIP(s)
+    s = S.getSession(useTor=True)
+    torIP = S.getIP(s)
 
     assert myIP != torIP
 
 
 def test_getSessionWithTorAndRotatedIP():
-    s = getSession(useTor=True)
-    IP1 = getIP(s)
+    s = S.getSession(useTor=True)
+    IP1 = S.getIP(s)
 
-    s = getSession(useTor=True, rotateIp=True)
-    IP2 = getIP(s)
+    s = S.getSession(useTor=True, rotateIp=True)
+    IP2 = S.getIP(s)
 
     assert IP1 != IP2

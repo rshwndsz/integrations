@@ -1,9 +1,9 @@
-from goodreads.parser import parseArgs, getUpdatedLibrary
+from goodreads import parser as P
 
 
 def test_library_update():
-    args = parseArgs(["--books", "2", "--input", "./tests/test_input.csv"])
-    df = getUpdatedLibrary(args.input, args.books)
+    args = P.parseArgs(["--books", "2", "--input", "./tests/test_input.csv"])
+    df = P.getUpdatedLibrary(args.input, args.books)
 
     assert df.loc[0, "Title"] == "Shadow & Flame (Rime Chronicles, #2)"
     assert df.loc[0, "Author"] == "Mindee Arnett"
