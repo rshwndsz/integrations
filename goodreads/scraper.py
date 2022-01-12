@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 
 from . import sessions as S
 from . import log as L
-logger = L.getLogger(__name__, logging.INFO)
+global logger
 
 
 def getGenresFromHTML(soup: BeautifulSoup) -> Union[None, str]:
@@ -119,7 +119,7 @@ def getUpdatedLibrary(csv: str, nBooks: int = 2) -> pd.DataFrame:
     # Check validity of arguments
     if nBooks > len(df) or nBooks == 0 or nBooks < -1:
         logger.error(f"Invalid number of books: {nBooks}. Aborting...")
-        exit()
+        sys.exit(1)
 
     # Select a subset of the data, if requested
     if nBooks != -1:
@@ -132,6 +132,11 @@ def getUpdatedLibrary(csv: str, nBooks: int = 2) -> pd.DataFrame:
     # Track progress
     progress = {"Done": 0, "Failed": 0}
     pbar = tqdm(total=len(df), postfix=progress)
+
+    # Check Tor SOCKS Proxy status
+    if not S.isTorSocksProxyUp(nRetries=5, backoffTime=2):
+        logging.error("Could not connect to Tor SOCKS Proxy. Quitting...")
+        sys.exit(1)
 
     # Spin up threads
     futureToIndex = {}
@@ -185,6 +190,7 @@ def parseArgs(argv):
     parser.add_argument("--books", type=int, default=-1)
     parser.add_argument("--input", default="./input.csv")
     parser.add_argument("--output", default="./output.csv")
+    parser.add_argument("--verbose", dest="verbose", action="store_true")
 
     return parser.parse_args(argv)
 
@@ -193,6 +199,11 @@ if __name__ == "__main__":
     _start = time()
 
     args = parseArgs(sys.argv[1:])
+    if args.verbose:
+        logger = L.getLogger(__name__, console=True, level=logging.INFO)
+    else:
+        logger = L.getLogger(__name__, console=False, level=logging.INFO)
+
     main(args)
 
     logger.info(f"Finished successfully in {time() - _start}s.")
