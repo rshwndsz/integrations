@@ -12,26 +12,19 @@ from bs4.element import NavigableString
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from bs4 import BeautifulSoup
 
-from goodreads.sessions import getSession, getIP
-
-# Config for root logger
-logging.basicConfig(
-    format="%(name)s :: %(levelname)-8s :: %(asctime)s :: %(filename)s - L%(lineno)-3d :: %(message)s",
-    filename="LOG.log",
-    filemode="w",
-    level=logging.DEBUG,
-)
-
-# Instantiate local logger
-logger = logging.getLogger("goodreads")
-logger.setLevel(logging.DEBUG)
+from . import sessions as S
+from . import log as L
+logger = L.getLogger(__name__, logging.DEBUG)
 
 
 def getGenresFromHTML(soup: BeautifulSoup) -> Union[None, str]:
     # https://github.com/maria-antoniak/goodreads-scraper/blob/b019ff78c7641bba8bcdc36ffa223861a617c7e4/get_books.py#L73-L80
     genres = []
     for node in soup.find_all("div", {"class": "left"}):
-        tags = node.find_all("a", {"class": "actionLinkLite bookPageGenreLink"})
+        tags = node.find_all(
+            "a",
+            {"class": "actionLinkLite bookPageGenreLink"}
+        )
         genre = " > ".join([t.text for t in tags]).strip()
         if genre:
             genre = genre.strip()
@@ -47,7 +40,8 @@ def getGenresFromHTML(soup: BeautifulSoup) -> Union[None, str]:
 def getCoverImageFromHTML(soup: BeautifulSoup) -> Union[None, str]:
     image = None
     tags = soup.findAll(id="coverImage") or soup.findAll(
-        "meta", attrs={"property": "og:image"}
+        "meta",
+        attrs={"property": "og:image"}
     )
     for tag in tags:
         if tag and not isinstance(tag, NavigableString):
@@ -73,10 +67,10 @@ def getHTMLFromURL(url: str, rotateIpEveryNRequests: int = 15) -> BeautifulSoup:
 
     # Rotate IP every 15 requests, if requested
     if rotateIpEveryNRequests and getHTMLFromURL.counter % rotateIpEveryNRequests == 0:
-        session = getSession(useTor=True, rotateIp=True)
+        session = S.getSession(useTor=True, rotateIp=True)
     else:
-        session = getSession(useTor=True, rotateIp=False)
-    logger.debug(getIP(session))
+        session = S.getSession(useTor=True, rotateIp=False)
+    logger.debug(S.getIP(session))
 
     # Get HTML
     r = session.get(url)
