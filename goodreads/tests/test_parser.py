@@ -2,7 +2,7 @@ from goodreads.parser import parseArgs, getUpdatedLibrary
 
 
 def test_library_update():
-    args = parseArgs(["--books", "2", "--input", "./goodreads/test_input.csv"])
+    args = parseArgs(["--books", "2", "--input", "./tests/test_input.csv"])
     df = getUpdatedLibrary(args.input, args.books)
 
     assert df.loc[0, "Title"] == "Shadow & Flame (Rime Chronicles, #2)"
