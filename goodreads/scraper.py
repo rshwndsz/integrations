@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 
 from . import sessions as S
 from . import log as L
-logger = L.getLogger(__name__, logging.DEBUG)
+logger = L.getLogger(__name__, logging.INFO)
 
 
 def getGenresFromHTML(soup: BeautifulSoup) -> Union[None, str]:
