@@ -2,13 +2,15 @@
     Sync MAL & Notion
 */
 
-const { Client } = require("@notionhq/client")
-const dotenv = require("dotenv")
-const fs = require("fs")
+import Client from "@notionhq/client"
+import axios from axios
+import dotenv from "dotenv"
+import { promises as fs } from "fs"
 
 dotenv.config()
 const notion = new Client({ auth: process.env.NOTION_CLIENT_ID })
 const databaseID = process.env.NOTION_DATABASE_ID
+const malUsername = process.env.MAL_USERNAME
 const OPERATION_BATCH_SIZE = 10
 
 // Local Data Store
@@ -42,12 +44,21 @@ async function syncNotionDatabaseWithMyanimelist() {
 
 
 async function getAnimelistFromMyanimelist() {
-    // https://stackoverflow.com/a/10011078
-    const animelist = {};
-    fs.readFile("animelist.json", "utf-8", (err, data) => {
-        if (err) { throw err }
-        animelist = JSON.parse(data)
-    })
+    const BASE_URL = "https://api.jikan.moe/v3"
+    let page = 1
+    let animelist = {}
+    while (page < 3) {
+        try {
+            const res = await axios.get(
+                `${BASE_URL}/user/${MAL_USERNAME}/animelist/all/${page}`
+            )
+            animelist = { ...res.data.anime }
+        } catch (error) {
+            console.error(error)
+        }
+        page += 1
+    }
+    await fs.writeFile("out.json", JSON.stringify(animelist))
 }
 
 
