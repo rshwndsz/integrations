@@ -12,7 +12,12 @@ from stem.control import Controller
 
 from integrations.common import log as L
 
-logger = L.getLogger(__name__, logging.INFO)
+logger = L.getLogger(
+    __name__,
+    localLevel="INFO",
+    rootLevel="INFO",
+    console=False
+)
 
 
 def getTorController():
