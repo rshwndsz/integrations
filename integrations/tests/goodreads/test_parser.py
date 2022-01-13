@@ -1,4 +1,4 @@
-from goodreads import parser as P
+from integrations.goodreads import parser as P
 
 
 def test_library_update():

@@ -12,8 +12,9 @@ from bs4.element import NavigableString
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from bs4 import BeautifulSoup
 
-from ..common import sessions as S
-from . import log as L
+from integrations.common import sessions as S
+from integrations.common import log as L
+
 global logger
 
 
@@ -21,10 +22,7 @@ def getGenresFromHTML(soup: BeautifulSoup) -> Union[None, str]:
     # https://github.com/maria-antoniak/goodreads-scraper/blob/b019ff78c7641bba8bcdc36ffa223861a617c7e4/get_books.py#L73-L80
     genres = []
     for node in soup.find_all("div", {"class": "left"}):
-        tags = node.find_all(
-            "a",
-            {"class": "actionLinkLite bookPageGenreLink"}
-        )
+        tags = node.find_all("a", {"class": "actionLinkLite bookPageGenreLink"})
         genre = " > ".join([t.text for t in tags]).strip()
         if genre:
             genre = genre.strip()
@@ -40,8 +38,7 @@ def getGenresFromHTML(soup: BeautifulSoup) -> Union[None, str]:
 def getCoverImageFromHTML(soup: BeautifulSoup) -> Union[None, str]:
     image = None
     tags = soup.findAll(id="coverImage") or soup.findAll(
-        "meta",
-        attrs={"property": "og:image"}
+        "meta", attrs={"property": "og:image"}
     )
     for tag in tags:
         if tag and not isinstance(tag, NavigableString):
