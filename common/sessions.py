@@ -10,7 +10,7 @@ from stem import Signal, SocketError
 from stem.connection import MissingPassword, PasswordAuthFailed
 from stem.control import Controller
 
-from . import log as L
+from ..goodreads import log as L
 logger = L.getLogger(__name__, logging.INFO)
 
 

@@ -12,7 +12,7 @@ from bs4.element import NavigableString
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from bs4 import BeautifulSoup
 
-from . import sessions as S
+from ..common import sessions as S
 from . import log as L
 global logger
 

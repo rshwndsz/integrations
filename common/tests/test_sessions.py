@@ -1,6 +1,6 @@
 from time import sleep
 import requests
-from goodreads import sessions as S
+from common import sessions as S
 
 
 def test_getSessionWithTor():
