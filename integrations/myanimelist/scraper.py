@@ -1,11 +1,16 @@
 from argparse import ArgumentParser
+import json
 import pandas as pd
 
 from integrations.common import sessions as S
 from integrations.common import log as L
 
 logger = L.getLogger(
-    __name__, localLevel="INFO", rootLevel="DEBUG", logFile="LOG.log", console=False
+    __name__,
+    localLevel="DEBUG",
+    rootLevel="DEBUG",
+    logFile="LOG.log",
+    console=False
 )
 
 
@@ -31,16 +36,22 @@ def formatAnimeList(animelist):
 
 
 def getAnimeListOfUser(username, session=None):
+    BASE_URL = "https://api.jikan.moe/v3"
+
     if not session:
-        session = S.getSession(useFakeUserAgent=True, useTor=False, maxRetries=3)
+        session = S.getSession(
+            useFakeUserAgent=True,
+            useTor=False,
+            maxRetries=3
+        )
 
     animelist = []
     for i in range(1, 20):
         # https://jikan.docs.apiary.io/#reference/0/user
-        res = session.get(f"https://api.jikan.moe/v3/user/{username}/animelist/all/{i}")
-        res.raise_for_status()
+        r = session.get(f"{BASE_URL}/user/{username}/animelist/all/{i}")
+        r.raise_for_status()
 
-        anime = res.json().get("anime")
+        anime = r.json().get("anime")
         if anime:
             animelist.extend(anime)
         else:
@@ -58,9 +69,12 @@ def main(args):
     if args.formatForNotion:
         animelist = formatAnimeList(animelist)
 
-    if args.outputFile:
+    if args.outputFile and args.outputFormat == "csv":
         df = pd.DataFrame(animelist)
         df.to_csv(args.outputFile, index=False)
+    elif args.outputFile and args.outputFormat == "json":
+        with open(args.outputFile, "w") as f:
+            json.dump(animelist, f)
     else:
         logger.info(animelist)
 
@@ -71,7 +85,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--formatForNotion", dest="formatForNotion", action="store_true"
     )
-    parser.add_argument("--outputFile", default="")
+    parser.add_argument("--outputFile", default="animelist.json")
+    parser.add_argument("--outputFormat", default="json")  # `json` or `csv`
     args = parser.parse_args()
 
+    logger.info(args)
     main(args)

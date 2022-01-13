@@ -1,0 +1,12 @@
+{
+  "name": "myanimelist-sync",
+  "version": "0.1.0",
+  "description": "Sync MyAnimeList with Notion",
+  "main": "index.js",
+  "repository": "https://github.com/rshwndsz/integrations",
+  "author": "rshwndsz",
+  "dependencies": {
+    "@notionhq/client": "^0.4.12",
+    "dotenv": "^11.0.0"
+  }
+}
