@@ -50,11 +50,11 @@ def isTorSocksProxyUp(nRetries=3, backoffTime=1):
     return status
 
 
-def getSession(useFakeUserAgent=True, useTor=False, rotateIp=False):
+def getSession(useFakeUserAgent=True, useTor=False, rotateIp=False, maxRetries=3):
     s = requests.Session()
 
     # https://stackoverflow.com/a/47475019
-    retryStrategy = Retry(total=3)
+    retryStrategy = Retry(total=maxRetries)
     adapter = HTTPAdapter(max_retries=retryStrategy)
     s.mount("http://", adapter)
     s.mount("https://", adapter)
