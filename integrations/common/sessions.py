@@ -10,8 +10,14 @@ from stem import Signal, SocketError
 from stem.connection import MissingPassword, PasswordAuthFailed
 from stem.control import Controller
 
-from . import log as L
-logger = L.getLogger(__name__, logging.INFO)
+from integrations.common import log as L
+
+logger = L.getLogger(
+    __name__,
+    localLevel="INFO",
+    rootLevel="INFO",
+    console=False
+)
 
 
 def getTorController():
@@ -43,7 +49,8 @@ def isTorSocksProxyUp(nRetries=3, backoffTime=1):
         if status == "1":
             break
         logger.warning(
-            f"status/circuit-established != 1. Retrying in {backoffTime}s...")
+            f"status/circuit-established != 1. Retrying in {backoffTime}s..."
+        )
         sleep(backoffTime)
 
     controller.close()
