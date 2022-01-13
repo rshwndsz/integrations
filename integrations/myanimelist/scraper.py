@@ -1,11 +1,12 @@
 from argparse import ArgumentParser
-import requests
 import pandas as pd
 
 from integrations.common import sessions as S
 from integrations.common import log as L
 
-logger = L.getLogger(__name__, localLevel="DEBUG", rootLevel="DEBUG", console=True)
+logger = L.getLogger(
+    __name__, localLevel="INFO", rootLevel="DEBUG", logFile="LOG.log", console=False
+)
 
 
 def formatAnimeList(animelist):
@@ -35,6 +36,7 @@ def getAnimeListOfUser(username, session=None):
 
     animelist = []
     for i in range(1, 20):
+        # https://jikan.docs.apiary.io/#reference/0/user
         res = session.get(f"https://api.jikan.moe/v3/user/{username}/animelist/all/{i}")
         res.raise_for_status()
 
@@ -52,17 +54,24 @@ def main(args):
     if not args.username:
         raise ValueError("Enter a valid username.")
     animelist = getAnimeListOfUser(args.username)
-    animelist = formatAnimeList(animelist)
 
-    if args.output:
+    if args.formatForNotion:
+        animelist = formatAnimeList(animelist)
+
+    if args.outputFile:
         df = pd.DataFrame(animelist)
-        df.to_csv("animelist.csv", index=False)
+        df.to_csv(args.outputFile, index=False)
+    else:
+        logger.info(animelist)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--username", default="")
-    parser.add_argument("--output", default="")
+    parser.add_argument(
+        "--formatForNotion", dest="formatForNotion", action="store_true"
+    )
+    parser.add_argument("--outputFile", default="")
     args = parser.parse_args()
 
     main(args)
