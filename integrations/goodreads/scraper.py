@@ -196,10 +196,13 @@ if __name__ == "__main__":
     _start = time()
 
     args = parseArgs(sys.argv[1:])
-    if args.verbose:
-        logger = L.getLogger(__name__, console=True, level=logging.INFO)
-    else:
-        logger = L.getLogger(__name__, console=False, level=logging.INFO)
+    logger = L.getLogger(
+        __name__,
+        localLevel="DEBUG" if args.verbose else "INFO",
+        rootLevel="DEBUG" if args.verbose else "INFO",
+        logFile="LOG.log",
+        console=args.verbose,
+    )
 
     main(args)
 
