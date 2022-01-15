@@ -143,7 +143,7 @@ function getPropertiesFromAnime(anime) {
             title: [{ type: "text", text: { content: anime.title } }],
         },
         Score: {
-            number: anime.score ? anime.score : "",
+            number: anime.score,
         },
         "MAL ID": {
             number: anime.mal_id,
@@ -165,10 +165,10 @@ function getPropertiesFromAnime(anime) {
             },
         },
         Days: {
-            number: anime.days ? anime.days : "",
+            number: anime.days,
         },
         "Watched Episodes": {
-            number: anime.watched_episodes ? anime.watched_episodes : "",
+            number: anime.watched_episodes,
         },
         Type: {
             select: { name: anime.type ? anime.type : "" },
