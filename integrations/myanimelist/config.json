@@ -7,7 +7,57 @@
 		"databaseID": ""
 	},
 	"myanimelist": {
-		"databaseID": "fad95431-4b21-40aa-ae46-9c20536fd87d",
-		"malUsername": "rshwndsz"
+		"databaseID": "681a85d8-dde9-4e78-8807-afd3f5e91a88",
+		"malUsername": "rshwndsz",
+		"properties": {
+			"Title": {
+				"type": "title",
+				"title": {}
+			},
+			"Score": {
+				"type": "number",
+				"number": {}
+			},
+			"MAL ID": {
+				"type": "number",
+				"number": {}
+			},
+			"MAL URL": {
+				"type": "url",
+				"url": {}
+			},
+			"Is Rewatching?": {
+				"type": "checkbox",
+				"checkbox": {}
+			},
+			"Watch Start Date": {
+				"type": "date",
+				"date": {}
+			},
+			"Watch End Date": {
+				"type": "date",
+				"date": {}
+			},
+			"Days": {
+				"type": "number",
+				"number": {
+					"format": "number"
+				}
+			},
+			"Watched Episodes": {
+				"type": "number",
+				"number": {
+					"format": "number"
+				}
+			},
+			"Type": {
+				"type": "select",
+				"select": {}
+			},
+			"Genres": {
+				"type": "multi_select",
+				"multi_select": {}
+			}
+		}
 	}
 }
