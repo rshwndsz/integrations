@@ -168,7 +168,7 @@ function getPropertiesFromAnime(anime) {
             url: anime.url,
         },
         "Image URL": {
-            files: [{ name: "Image", file: { url: anime.image_url }, external: { url: "" } }],
+            files: [{ name: "Image", external: { url: anime.image_url } }],
         },
         "Is Rewatching?": {
             checkbox: anime.is_rewatching,
