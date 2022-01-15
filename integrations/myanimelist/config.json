@@ -1,63 +1,67 @@
 {
-	"general": {
-		"rootPageID": "f6b65ac3f59947d3a30ee0631d55e8d6",
-		"opBatchSize": 10
-	},
-	"goodreads": {
-		"databaseID": ""
-	},
-	"myanimelist": {
-		"databaseID": "a4dfc424-e86c-4128-b60f-dcd7ed9359ed",
-		"malUsername": "rshwndsz",
-		"properties": {
-			"Title": {
-				"type": "title",
-				"title": {}
-			},
-			"Score": {
-				"type": "number",
-				"number": {}
-			},
-			"MAL ID": {
-				"type": "number",
-				"number": {}
-			},
-			"MAL URL": {
-				"type": "url",
-				"url": {}
-			},
-			"Is Rewatching?": {
-				"type": "checkbox",
-				"checkbox": {}
-			},
-			"Watch Start Date": {
-				"type": "date",
-				"date": {}
-			},
-			"Watch End Date": {
-				"type": "date",
-				"date": {}
-			},
-			"Days": {
-				"type": "number",
-				"number": {
-					"format": "number"
-				}
-			},
-			"Watched Episodes": {
-				"type": "number",
-				"number": {
-					"format": "number"
-				}
-			},
-			"Type": {
-				"type": "select",
-				"select": {}
-			},
-			"Genres": {
-				"type": "multi_select",
-				"multi_select": {}
-			}
-		}
-	}
+    "general": {
+        "rootPageID": "f6b65ac3f59947d3a30ee0631d55e8d6",
+        "opBatchSize": 10
+    },
+    "goodreads": {
+        "databaseID": ""
+    },
+    "myanimelist": {
+        "databaseID": "f57f1525-4514-44fd-8da9-04f414b94775",
+        "malUsername": "rshwndsz",
+        "properties": {
+            "Title": {
+                "type": "title",
+                "title": {}
+            },
+            "Score": {
+                "type": "number",
+                "number": {}
+            },
+            "Watch Start Date": {
+                "type": "date",
+                "date": {}
+            },
+            "Watch End Date": {
+                "type": "date",
+                "date": {}
+            },
+            "Days": {
+                "type": "number",
+                "number": {
+                    "format": "number"
+                }
+            },
+            "Watched Episodes": {
+                "type": "number",
+                "number": {
+                    "format": "number"
+                }
+            },
+            "Type": {
+                "type": "select",
+                "select": {}
+            },
+            "Genres": {
+                "type": "multi_select",
+                "multi_select": {}
+            },
+            "MAL ID": {
+                "type": "number",
+                "number": {}
+            },
+            "MAL URL": {
+                "type": "url",
+                "url": {}
+            },
+            "Image URL": {
+                "type": "files",
+                "files": {}
+            },
+            "Is Rewatching?": {
+                "type": "checkbox",
+                "checkbox": {}
+            }
+        }
+    }
 }

@@ -47,7 +47,7 @@ async function createNewNotionDB() {
 
             // Update config with Database ID
             CFG.myanimelist.databaseID = res.id
-            fs.writeFile(configFile, JSON.stringify(CFG, null, "\t"), "utf-8", (err) => {
+            fs.writeFile(configFile, JSON.stringify(CFG, null, 4), "utf-8", (err) => {
                 if (err) {
                     console.error(err)
                 }
@@ -145,38 +145,41 @@ function getPropertiesFromAnime(anime) {
         Score: {
             number: anime.score,
         },
+        "Watch Start Date": {
+            date: anime.watch_start_date
+                ? { start: anime.watch_start_date.slice(0, "yyyy-mm-dd".length) }
+                : { start: "" },
+        },
+        "Watch End Date": {
+            date: anime.watch_end_date ? { start: anime.watch_end_date.slice(0, "yyyy-mm-dd".length) } : { start: "" },
+        },
+        "Watched Episodes": {
+            number: anime.watched_episodes,
+        },
+        Genres: {
+            multi_select: anime.genres
+                ? anime.genres.map((genre) => {
+                      return { name: genre.name }
+                  })
+                : [],
+        },
+        Days: {
+            number: anime.days,
+        },
+        Type: {
+            select: anime.type ? { name: anime.type } : {},
+        },
         "MAL ID": {
             number: anime.mal_id,
         },
         "MAL URL": {
             url: anime.url,
         },
+        "Image URL": {
+            files: [{ name: "Image", file: { url: anime.image_url }, external: { url: null } }],
+        },
         "Is Rewatching?": {
             checkbox: anime.is_rewatching,
-        },
-        "Watch Start Date": {
-            date: {
-                start: anime.watch_start_date ? anime.watch_start_date.slice(0, "yyyy-mm-dd".length) : "",
-            },
-        },
-        "Watch End Date": {
-            date: {
-                start: anime.watch_end_date ? anime.watch_end_date.slice(0, "yyyy-mm-dd".length) : "",
-            },
-        },
-        Days: {
-            number: anime.days,
-        },
-        "Watched Episodes": {
-            number: anime.watched_episodes,
-        },
-        Type: {
-            select: { name: anime.type ? anime.type : "" },
-        },
-        Genres: {
-            multi_select: anime.genres.map((genre) => {
-                return { name: genre.name }
-            }),
         },
     }
 }
@@ -258,7 +261,7 @@ async function main() {
     }
 
     // Check MAL DB
-    spinner = ora("Checking MAL DB").start()
+    spinner = ora("Checking database page").start()
     try {
         response = await notion.databases.retrieve({
             database_id: CFG.myanimelist.databaseID,
