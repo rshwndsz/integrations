@@ -6,11 +6,9 @@ import axios from "axios"
 import dotenv from "dotenv"
 import chunk from "lodash.chunk"
 import fs from "fs"
-
 import inquirer from "inquirer"
 import InquirerFuzzyPath from "inquirer-fuzzy-path"
 import ora from "ora"
-import chalk from "chalk"
 
 // Config
 inquirer.registerPrompt("fuzzypath", InquirerFuzzyPath)
@@ -22,26 +20,11 @@ let CFG = {}
 const notion = new Client({ auth: process.env.NOTION_API_KEY })
 const MALtoNotionIDMap = {}
 
-async function syncNotionWithMAL() {
-    const animelist = await getAnimelistFromMAL()
-    console.log(chalk.blue(`Fetched ${animelist.length} anime from Notion.`))
-
-    const { pagesToCreate, pagesToUpdate } = getOperationsToSyncWithNotion(animelist)
-
-    console.log(chalk.white(`${pagesToCreate.length} new anime to add to Notion.`))
-    await createPages(pagesToCreate)
-
-    console.log(chalk.white(`${pagesToUpdate.length} anime to update in Notion.`))
-    await updatePages(pagesToUpdate)
-
-    console.log(chalk.green("Notion database synced with Myanimelist."))
-}
-
 async function createNewNotionDB() {
     let response = await inquirer.prompt({
         type: "list",
         name: "createNew",
-        message: "MAL DB ID doesn't exist in config.json. Create a new DB?",
+        message: "A Notion database mirroring MyAnimeList doesn't exist. Create a new one?",
         choices: ["Yes", "No"],
     })
 
@@ -60,28 +43,27 @@ async function createNewNotionDB() {
             properties: CFG.myanimelist.properties,
         })
         .then((res) => {
-            spinner.stop()
-            console.log(chalk.green("Created new database for MyAnimeList"))
-            console.log(chalk.blue(`Live at ${res.url}`))
+            spinner.succeed(`Created new database for MyAnimeList\nLive at ${res.url} .`)
 
+            // Update config with Database ID
             CFG.myanimelist.databaseID = res.id
             fs.writeFile(configFile, JSON.stringify(CFG, null, "\t"), "utf-8", (err) => {
                 if (err) {
                     console.error(err)
-                } else {
-                    console.log(chalk.blue("\nUpdated config file with the databaseID."))
                 }
             })
         })
         .catch((err) => {
-            console.error(err)
+            spinner.fail(err)
             process.exit()
         })
 }
 
 async function getAnimelistFromNotion() {
+    let spinner = ora("Getting existing animelist from Notion").start()
     const animelist = []
     let cursor = undefined
+
     do {
         const { results, nextCursor } = await notion.databases.query({
             database_id: CFG.myanimelist.databaseID,
@@ -91,6 +73,7 @@ async function getAnimelistFromNotion() {
         cursor = nextCursor
     } while (cursor)
 
+    spinner.succeed(`Found ${animelist.length} anime in Notion.`)
     return animelist.map((anime) => {
         return {
             notionID: anime.id,
@@ -107,6 +90,7 @@ async function InitMALtoNotionIDMap() {
 }
 
 async function getAnimelistFromMAL() {
+    let spinner = ora("Getting animelist from myanimelist.net with Jikan").start()
     const baseURL = "https://api.jikan.moe/v3"
     const malUsername = CFG.myanimelist.malUsername
 
@@ -118,7 +102,7 @@ async function getAnimelistFromMAL() {
         try {
             res = await axios.get(`${baseURL}/user/${malUsername}/animelist/all/${page}`)
         } catch (err) {
-            console.error(err)
+            spinner.fail(err)
         }
 
         anime = await res.data.anime
@@ -126,6 +110,7 @@ async function getAnimelistFromMAL() {
         page += 1
     } while (anime.length && page < 8)
 
+    spinner.succeed(`Found ${animelist.length} anime in MAL.`)
     return animelist
 }
 
@@ -170,10 +155,14 @@ function getPropertiesFromAnime(anime) {
             checkbox: anime.is_rewatching,
         },
         "Watch Start Date": {
-            date: anime.watch_start_date ? anime.watch_start_date.slice(0, "yyyy-mm-dd".length) : "",
+            date: {
+                start: anime.watch_start_date ? anime.watch_start_date.slice(0, "yyyy-mm-dd".length) : "",
+            },
         },
         "Watch End Date": {
-            date: anime.watch_end_date ? anime.watch_end_date.slice(0, "yyyy-mm-dd".length) : "",
+            date: {
+                start: anime.watch_end_date ? anime.watch_end_date.slice(0, "yyyy-mm-dd".length) : "",
+            },
         },
         Days: {
             number: anime.days ? anime.days : "",
@@ -182,19 +171,17 @@ function getPropertiesFromAnime(anime) {
             number: anime.watched_episodes ? anime.watched_episodes : "",
         },
         Type: {
-            select: anime.type ? anime.type : "",
+            select: { name: anime.type ? anime.type : "" },
         },
         Genres: {
-            multi_select: anime.genres ? anime.genres.map((genre) => genre.name) : "",
+            multi_select: anime.genres.map((genre) => {
+                return { name: genre.name }
+            }),
         },
     }
 }
 
 async function createPages(pagesToCreate) {
-    if (pagesToCreate.length === 0) {
-        return
-    }
-
     const pagesToCreateChunks = chunk(pagesToCreate, CFG.general.opBatchSize)
 
     for (const pagesToCreateBatch of pagesToCreateChunks) {
@@ -206,15 +193,10 @@ async function createPages(pagesToCreate) {
                 })
             })
         )
-        console.log(`Completed batch size: ${pagesToCreateBatch.length}`)
     }
 }
 
 async function updatePages(pagesToUpdate) {
-    if (pagesToUpdate.length === 0) {
-        return
-    }
-
     const pagesToUpdateChunks = chunk(pagesToUpdate, CFG.general.opBatchSize)
 
     for (const pagesToUpdateBatch of pagesToUpdateChunks) {
@@ -226,14 +208,21 @@ async function updatePages(pagesToUpdate) {
                 })
             )
         )
-        console.log(`Completed batch size: ${pagesToUpdateBatch.length}`)
     }
+}
+
+async function syncNotionWithMAL() {
+    const animelist = await getAnimelistFromMAL()
+    const { pagesToCreate, pagesToUpdate } = getOperationsToSyncWithNotion(animelist)
+
+    await createPages(pagesToCreate)
+    await updatePages(pagesToUpdate)
 }
 
 async function main() {
     // Setup
-    let spinner = {}
-    let response = {}
+    let spinner = undefined
+    let response = undefined
 
     // Load config
     response = await inquirer.prompt([
@@ -241,6 +230,7 @@ async function main() {
             type: "fuzzypath",
             name: "path",
             excludePath: (nodePath) => nodePath.startsWith("node_modules") || nodePath.startsWith("__"),
+            default: "config.json",
             itemType: "file",
             message: "Select the config file to be loaded: ",
             suggestOnly: false,
@@ -256,10 +246,9 @@ async function main() {
         response = await notion.pages.retrieve({
             page_id: CFG.general.rootPageID,
         })
-        spinner.stop()
-        console.log(chalk.green(`Found root page at ${response.url}`))
+        spinner.succeed(`Found root page at ${response.url}.`)
     } catch (err) {
-        console.error(`Could not obtain root page: ${err}`)
+        spinner.fail(`Could not obtain root page: ${err}`)
         process.exit()
     }
 
@@ -274,18 +263,19 @@ async function main() {
         response = await notion.databases.retrieve({
             database_id: CFG.myanimelist.databaseID,
         })
-        spinner.stop()
-        console.log(chalk.green(`Found MAL DB at ${response.url}`))
+        spinner.succeed(`Found MAL DB at ${response.url}.`)
     } catch (err) {
-        spinner.stop()
-        console.error(`Could not obtain MAL DB: ${err}`)
+        spinner.fail(`Could not obtain MAL DB: ${err}`)
         await createNewNotionDB()
     }
 
     // Sync
-    spinner = ora("Sycing MAL to Notion").start()
-    await InitMALtoNotionIDMap().then(syncNotionWithMAL())
-    spinner.stop()
+    spinner = ora("Syncing").start()
+    try {
+        InitMALtoNotionIDMap().then(syncNotionWithMAL())
+    } catch (err) {
+        spinner.fail(`Failed \n\n ${err}`)
+    }
 }
 
 main()
