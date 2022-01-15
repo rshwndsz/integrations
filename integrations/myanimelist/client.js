@@ -137,21 +137,13 @@ function getOperationsToSyncWithNotion(myanimelist) {
 }
 
 function getPropertiesFromAnime(anime) {
-    return {
+    let result = {
         Title: {
             // An array of rich text objects
             title: [{ type: "text", text: { content: anime.title } }],
         },
         Score: {
             number: anime.score,
-        },
-        "Watch Start Date": {
-            date: anime.watch_start_date
-                ? { start: anime.watch_start_date.slice(0, "yyyy-mm-dd".length) }
-                : { start: "" },
-        },
-        "Watch End Date": {
-            date: anime.watch_end_date ? { start: anime.watch_end_date.slice(0, "yyyy-mm-dd".length) } : { start: "" },
         },
         "Watched Episodes": {
             number: anime.watched_episodes,
@@ -176,12 +168,26 @@ function getPropertiesFromAnime(anime) {
             url: anime.url,
         },
         "Image URL": {
-            files: [{ name: "Image", file: { url: anime.image_url }, external: { url: null } }],
+            files: [{ name: "Image", file: { url: anime.image_url }, external: { url: "" } }],
         },
         "Is Rewatching?": {
             checkbox: anime.is_rewatching,
         },
     }
+
+    if (anime.watch_start_date) {
+        result["Watch Start Date"] = {
+            date: { start: anime.watch_start_date.slice(0, "yyyy-mm-dd".length) },
+        }
+    }
+
+    if (anime.watch_end_date) {
+        result["Watch End Date"] = {
+            date: { start: anime.watch_end_date.slice(0, "yyyy-mm-dd".length) },
+        }
+    }
+
+    return result
 }
 
 async function createPages(pagesToCreate) {
@@ -266,9 +272,9 @@ async function main() {
         response = await notion.databases.retrieve({
             database_id: CFG.myanimelist.databaseID,
         })
-        spinner.succeed(`Found MAL DB at ${response.url}.`)
+        spinner.succeed(`Found database page at ${response.url}.`)
     } catch (err) {
-        spinner.fail(`Could not obtain MAL DB: ${err}`)
+        spinner.fail(`Could not obtain database page: ${err}`)
         await createNewNotionDB()
     }
 
