@@ -1,0 +1,13 @@
+{
+	"general": {
+		"rootPageID": "f6b65ac3f59947d3a30ee0631d55e8d6",
+		"opBatchSize": 10
+	},
+	"goodreads": {
+		"databaseID": ""
+	},
+	"myanimelist": {
+		"databaseID": "fad95431-4b21-40aa-ae46-9c20536fd87d",
+		"malUsername": "rshwndsz"
+	}
+}

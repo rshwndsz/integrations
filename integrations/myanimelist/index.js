@@ -5,28 +5,46 @@ import { Client } from "@notionhq/client"
 import axios from "axios"
 import dotenv from "dotenv"
 import chunk from "lodash"
+import fs from "fs"
 
 // Config
 dotenv.config()
-const notion = new Client({ auth: process.env.NOTION_INTERNAL_INTEGRATION_TOKEN })
-const databaseID = process.env.NOTION_DATABASE_ID
-const malUsername = process.env.MAL_USERNAME
-const OPERATION_BATCH_SIZE = 10
+const configFile = "./config.json"
+const CFG = JSON.parse(await fs.promises.readFile(configFile, "utf-8"))
+
+// Notion client
+const notion = new Client({ auth: process.env.NOTION_API_KEY })
 
 // Local Data Store
 const myanimelistIDToNotionPageID = {}
 
 function main() {
-    // https://mathieularose.com/main-function-in-node-js
     // setInitialMyanimelistToNotionIDMap().then(syncNotionDatabaseWithMyanimelist)
-    createNotionDatabase().then(() => console.log("Done creating."))
+    createNewNotionDatabase()
+        .then((res) => {
+            CFG.myanimelist.databaseID = res.id
+            fs.writeFile(configFile, JSON.stringify(CFG, null, "\t"), "utf-8", (err) => {
+                if (err) {
+                    console.error(err)
+                } else {
+                    console.log("Updated config file with MAL databaseID.")
+                }
+            })
+            console.log(`Created new database for MyAnimeList\nLive at ${res.url}`)
+        })
+        .catch((err) => {
+            console.error(err)
+        })
+
+    testAddToNotionDatabase()
+        .then((res) => console.log(`Updated: ${JSON.stringify(res, null, 2)}`))
+        .catch((err) => console.error(`Error: ${err}`))
 }
 
 main()
 
-async function createNotionDatabase() {
-    const parentID = "f6b65ac3f59947d3a30ee0631d55e8d6"
-    const response = await notion.pages.retrieve({ page_id: parentID })
+async function createNewNotionDatabase() {
+    const response = await notion.pages.retrieve({ page_id: CFG.general.rootPageID })
 
     return notion.databases.create({
         parent: {
@@ -44,10 +62,66 @@ async function createNotionDatabase() {
         ],
         properties: {
             Title: {
+                type: "title",
                 title: {},
             },
-            Yes: {
+            Score: {
+                type: "number",
+                number: {},
+            },
+            "MAL ID": {
+                type: "number",
+                number: {},
+            },
+            "MAL URL": {
+                type: "url",
+                url: {},
+            },
+            "Is Rewatching?": {
+                type: "checkbox",
                 checkbox: {},
+            },
+            "Watch Start Date": {
+                type: "date",
+                date: {},
+            },
+            "Watch End Date": {
+                type: "date",
+                date: {},
+            },
+            Days: {
+                type: "number",
+                number: {
+                    format: "number",
+                },
+            },
+            "Watched Episodes": {
+                type: "number",
+                number: {
+                    format: "number",
+                },
+            },
+            Type: {
+                type: "select",
+                select: {},
+            },
+            Genres: {
+                type: "multi_select",
+                multi_select: {},
+            },
+        },
+    })
+}
+
+async function testAddToNotionDatabase() {
+    return notion.pages.create({
+        parent: { database_id: CFG.myanimelist.databaseID },
+        properties: {
+            Title: {
+                title: [{ type: "text", text: { content: "Test title" } }],
+            },
+            Score: {
+                number: 10,
             },
         },
     })
@@ -139,20 +213,41 @@ async function getAnimelistFromNotionDatabase() {
     })
 }
 
-// TODO
 async function getPropertiesFromAnime(anime) {
     return {
-        Name: {
+        Title: {
+            // An array of rich text objects
             title: [{ type: "text", text: { content: anime.title } }],
         },
-        URL: {
+        Score: {
+            type: "number",
+            number: anime.score,
+        },
+        "MAL ID": {
+            type: "number",
+            number: anime.mal_id,
+        },
+        "MAL URL": {
+            type: "url",
             url: anime.url,
         },
+        // "Is Rewatching?": {
+        //     type: "checkbox",
+        //     checkbox: anime.is_rewatching,
+        // },
+        // "Watch Start Date": {
+        //     type: "date",
+        //     date: anime.watch_start_date,
+        // },
+        // "Watch End Date": {
+        //     type: "date",
+        //     date: anime.watch_end_date,
+        // },
     }
 }
 
 async function createPages(pagesToCreate) {
-    const pagesToCreateChunks = chunk(pagesToCreate, OPERATION_BATCH_SIZE)
+    const pagesToCreateChunks = chunk(pagesToCreate, CFG.general.opBatchSize)
 
     for (const pagesToCreateBatch of pagesToCreateChunks) {
         await Promise.all(
@@ -168,7 +263,7 @@ async function createPages(pagesToCreate) {
 }
 
 async function updatePages(pagesToUpdate) {
-    const pagesToUpdateChunks = chunk(pagesToUpdate, OPERATION_BATCH_SIZE)
+    const pagesToUpdateChunks = chunk(pagesToUpdate, CFG.general.opBatchSize)
 
     for (const pagesToUpdateBatch of pagesToUpdateChunks) {
         await Promise.all(
